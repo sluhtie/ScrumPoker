@@ -1,6 +1,8 @@
 'use client';
 // Full navigation resets the browser-local room view when entering or leaving a room.
 /* oxlint-disable next/no-html-link-for-pages */
+// These local avatars are already optimized to 256px WebP (8–13 KB each).
+/* oxlint-disable next/no-img-element */
 import {
   useState,
   useEffect,
@@ -22,7 +24,16 @@ import {
   Crown,
   ChevronRight,
   Diamond,
+  Pencil,
 } from 'lucide-react';
+import {
+  AVATARS,
+  AVATAR_KEY,
+  DEFAULT_AVATAR,
+  avatarImage,
+  savedAvatar,
+  type AvatarId,
+} from '../lib/avatars';
 import type { Room } from '../server/game';
 import { LanguageSelector, useLanguage } from './language';
 import { errorText, type MessageKey } from '../lib/i18n';
@@ -42,6 +53,7 @@ import {
 type Player = {
   id: string;
   name: string;
+  avatar?: AvatarId;
   vote: string | null;
   voted: boolean;
   spectator: boolean;
@@ -92,8 +104,12 @@ function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current;
+    const opener = document.activeElement;
     dialog?.showModal();
-    return () => dialog?.close();
+    return () => {
+      dialog?.close();
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
   }, []);
   return (
     <dialog
@@ -120,12 +136,15 @@ function Seat({
   player,
   room,
   style,
+  onEdit,
 }: {
   player: Player;
   room: PublicRoom;
   style?: CSSProperties;
+  onEdit?: () => void;
 }) {
   const { t } = useLanguage();
+  const NameTag = onEdit ? 'button' : 'div';
   return (
     <div
       className={`seat ${player.id === room.you ? 'own-seat' : ''}`}
@@ -156,8 +175,22 @@ function Seat({
           </div>
         </div>
       )}
-      <div className="name-pill" title={player.name}>
-        <span className="avatar">{player.name.slice(0, 1).toUpperCase()}</span>
+      <NameTag
+        className="name-pill"
+        title={onEdit ? t('changeAvatar') : player.name}
+        onClick={onEdit}
+        aria-label={
+          onEdit ? `${t('changeAvatar')} · ${player.name}` : undefined
+        }
+        aria-haspopup={onEdit ? 'dialog' : undefined}
+      >
+        <img
+          className="avatar"
+          src={avatarImage(player.avatar)}
+          alt=""
+          width={32}
+          height={32}
+        />
         <span className="player-name">
           {player.name}
           {player.id === room.you ? ` · ${t('you')}` : ''}
@@ -165,8 +198,76 @@ function Seat({
         {player.id === room.hostId && (
           <Crown size={12} aria-label={t('host')} />
         )}
-      </div>
+      </NameTag>
     </div>
+  );
+}
+function AvatarDialog({
+  value,
+  busy = false,
+  error,
+  onClose,
+  onSave,
+}: {
+  value: AvatarId;
+  busy?: boolean;
+  error?: ReactNode;
+  onClose: () => void;
+  onSave: (value: AvatarId) => void;
+}) {
+  const { t } = useLanguage();
+  const [draft, setDraft] = useState(value);
+  return (
+    <Modal title={t('chooseAvatar')} onClose={onClose}>
+      <p className="avatar-hint">{t('avatarHint')}</p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSave(draft);
+        }}
+      >
+        <fieldset className="avatar-grid" disabled={busy}>
+          <legend className="sr-only">{t('chooseAvatar')}</legend>
+          {AVATARS.map((id) => (
+            <label
+              className="avatar-option"
+              key={id}
+              aria-label={t(`avatar${id}`)}
+            >
+              <input
+                type="radio"
+                name="avatar"
+                value={id}
+                checked={draft === id}
+                onChange={() => setDraft(id)}
+              />
+              <span className="avatar-tile">
+                <img src={avatarImage(id)} alt="" width={112} height={112} />
+                <span className="avatar-check" aria-hidden="true">
+                  <Check size={14} />
+                </span>
+                <span>{t(`avatar${id}`)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        {error}
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="quiet"
+            disabled={busy}
+            onClick={onClose}
+          >
+            {t('cancel')}
+          </button>
+          <button className="primary" disabled={busy}>
+            {t('save')}
+            <Check size={16} />
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 function SettingsDialog({
@@ -347,6 +448,7 @@ function SettingsDialog({
 export default function Home() {
   const { language, t } = useLanguage();
   const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState<AvatarId>(DEFAULT_AVATAR);
   const [title, setTitle] = useState('Sprint Planning');
   const [entry, setEntry] = useState<'create' | 'join'>('create');
   const [createSettings, setCreateSettings] =
@@ -363,7 +465,9 @@ export default function Home() {
   const [toast, setToast] = useState<MessageKey | ''>('');
   const [loaded, setLoaded] = useState(false);
   const [storiesOpen, setStoriesOpen] = useState(false);
-  const [modal, setModal] = useState<'settings' | 'invite' | null>(null);
+  const [modal, setModal] = useState<'settings' | 'invite' | 'avatar' | null>(
+    null,
+  );
   const sequence = useRef(0);
   const mutating = useRef(false);
   const roomRef = useRef<PublicRoom | null>(null);
@@ -422,7 +526,12 @@ export default function Home() {
     // Initialize the browser-only session after hydration.
     // oxlint-disable-next-line react/react-compiler
     setCode(c);
-    setToken(localStorage.getItem(key(c)) || '');
+    try {
+      setToken(localStorage.getItem(key(c)) || '');
+      setAvatar(savedAvatar(localStorage.getItem(AVATAR_KEY)));
+    } catch {
+      /* The in-session profile still works when storage is disabled. */
+    }
     setLoaded(true);
   }, []);
   useEffect(() => {
@@ -481,6 +590,7 @@ export default function Home() {
       const result = await request('/api/rooms', '', {
         name,
         title,
+        avatar,
         settings: createSettings,
       });
       localStorage.setItem(key(result.code), result.token);
@@ -492,6 +602,7 @@ export default function Home() {
       const result = await request(`/api/rooms/${code}`, '', {
         type: 'join',
         name,
+        avatar,
       });
       localStorage.setItem(key(code), result.token);
       setToken(result.token);
@@ -515,6 +626,18 @@ export default function Home() {
     if (!room) return;
     setError('');
     setModal('settings');
+  }
+  function rememberAvatar(value: AvatarId) {
+    setAvatar(value);
+    try {
+      localStorage.setItem(AVATAR_KEY, value);
+    } catch {
+      /* Optional device preference. */
+    }
+  }
+  function openAvatar() {
+    setError('');
+    setModal('avatar');
   }
   const host = !!room && room.you === room.hostId;
   const active = room?.stories.find((s) => s.id === room.activeId);
@@ -598,17 +721,37 @@ export default function Home() {
                 }}
               >
                 {(code || entry === 'create') && (
-                  <label>
-                    {t('yourName')}
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      maxLength={32}
-                      required
-                      autoComplete="name"
-                      placeholder="Alex"
-                    />
-                  </label>
+                  <div className="profile-entry">
+                    <button
+                      type="button"
+                      className="avatar-trigger"
+                      onClick={openAvatar}
+                      aria-label={t('chooseAvatar')}
+                      title={t('chooseAvatar')}
+                      aria-haspopup="dialog"
+                    >
+                      <img
+                        src={avatarImage(avatar)}
+                        alt=""
+                        width={64}
+                        height={64}
+                      />
+                      <span className="avatar-edit" aria-hidden="true">
+                        <Pencil size={12} />
+                      </span>
+                    </button>
+                    <label>
+                      {t('yourName')}
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        maxLength={32}
+                        required
+                        autoComplete="name"
+                        placeholder="Alex"
+                      />
+                    </label>
+                  </div>
                 )}
                 {!code && entry === 'create' && (
                   <label>
@@ -681,6 +824,16 @@ export default function Home() {
             onClose={() => setModal(null)}
             onSave={(value) => {
               setCreateSettings(value);
+              setModal(null);
+            }}
+          />
+        )}
+        {modal === 'avatar' && (
+          <AvatarDialog
+            value={avatar}
+            onClose={() => setModal(null)}
+            onSave={(value) => {
+              rememberAvatar(value);
               setModal(null);
             }}
           />
@@ -883,6 +1036,7 @@ export default function Home() {
                     player={player}
                     room={room}
                     style={style}
+                    onEdit={player.id === room.you ? openAvatar : undefined}
                   />
                 ) : (
                   <button
@@ -1066,6 +1220,21 @@ export default function Home() {
             <code>{room.code}</code>
           </div>
         </Modal>
+      )}
+      {modal === 'avatar' && (
+        <AvatarDialog
+          value={savedAvatar(me?.avatar)}
+          busy={busy}
+          error={errorBox}
+          onClose={() => setModal(null)}
+          onSave={(value) =>
+            void act({ type: 'avatar', avatar: value }, () => {
+              rememberAvatar(value);
+              setModal(null);
+              setToast('avatarSaved');
+            })
+          }
+        />
       )}
       {modal === 'settings' && (
         <SettingsDialog

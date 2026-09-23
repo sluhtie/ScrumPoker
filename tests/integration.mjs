@@ -29,13 +29,38 @@ const created = await api(
   '',
   {
     name: 'Integration host',
+    avatar: 'ghost',
     title: 'Integration test',
     settings: { deck: 'fibonacci', autoReveal: false, showAverage: false },
   },
   201,
 );
 const path = '/api/rooms/' + created.code;
-const joined = await api(path, '', { type: 'join', name: 'Integration guest' });
+const joined = await api(path, '', {
+  type: 'join',
+  name: 'Integration guest',
+  avatar: 'cat',
+});
+assert.equal(
+  joined.room.members.find((m) => m.id === joined.room.hostId).avatar,
+  'ghost',
+);
+assert.equal(
+  joined.room.members.find((m) => m.id === joined.room.you).avatar,
+  'cat',
+);
+const invalidAvatar = await api(
+  path,
+  '',
+  {
+    type: 'join',
+    name: 'Invalid avatar',
+    avatar: 'https://example.com/avatar.png',
+  },
+  400,
+);
+assert.equal(invalidAvatar.code, 'INVALID_AVATAR');
+await api(path, '', { type: 'avatar', avatar: 'frog' }, 401);
 assert.equal(joined.room.settings.showAverage, false);
 assert.equal(joined.room.settings.deck, 'fibonacci');
 const unauthorized = await api(path, '', undefined, 401);
@@ -50,6 +75,22 @@ await Promise.all([
   api(path, joined.token, { type: 'vote', value: '8', round: room.round }),
 ]);
 room = await api(path, created.token);
+await api(path, joined.token, {
+  type: 'avatar',
+  avatar: 'robot',
+  id: room.hostId,
+});
+const profile = await api(path, created.token);
+assert.equal(
+  profile.members.find((m) => m.id === profile.hostId).avatar,
+  'ghost',
+);
+assert.equal(
+  profile.members.find((m) => m.id === joined.room.you).avatar,
+  'robot',
+);
+assert.equal(profile.members.find((m) => m.id === joined.room.you).voted, true);
+assert.equal(profile.round, room.round);
 assert.equal(room.members.filter((m) => m.voted).length, 2);
 assert.equal(room.members.find((m) => m.id !== room.you).vote, null);
 assert.equal(JSON.stringify(room).includes('secret'), false);
@@ -202,7 +243,7 @@ const cross = await fetch(base + path, {
 });
 assert.equal(cross.status, 403);
 console.log(
-  'PASS: creation, joining, concurrent votes, vote privacy, host authorization, revealing, estimates, reset, stale votes, input validation, origin protection, persisted settings, observer mode, automatic reveal, T-shirt estimates, English default, stable error codes, initial settings, custom deck persistence and voting',
+  'PASS: creation, joining, concurrent votes, vote privacy, host authorization, revealing, estimates, reset, stale votes, input validation, origin protection, persisted settings, observer mode, automatic reveal, T-shirt estimates, English default, stable error codes, initial settings, custom deck persistence and voting, avatar persistence and member-only updates',
 );
 // Remove only the room created by this test.
 if (process.env.DATABASE_URL) {

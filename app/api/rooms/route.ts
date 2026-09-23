@@ -5,7 +5,12 @@ export async function POST(request: Request) {
   try {
     origin(request);
     const input = await body(request);
-    const { room, token } = createRoom(input.name, input.title, input.settings);
+    const { room, token } = createRoom(
+      input.name,
+      input.title,
+      input.settings,
+      input.avatar,
+    );
     await insert(room);
     return json({ code: room.code, token }, 201);
   } catch (e) {

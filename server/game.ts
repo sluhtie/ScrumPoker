@@ -1,5 +1,6 @@
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { errorText, type ErrorCode } from '../lib/i18n.ts';
+import { isAvatar, savedAvatar, type AvatarId } from '../lib/avatars.ts';
 import {
   DECKS,
   DEFAULT_SETTINGS,
@@ -13,6 +14,7 @@ export const DECK = DECKS.fibonacci.values;
 export type Member = {
   id: string;
   name: string;
+  avatar?: AvatarId;
   secret: string;
   vote: string | null;
   spectator: boolean;
@@ -55,13 +57,19 @@ export function clean(
     );
   return value.trim();
 }
-export function member(name: unknown) {
+function validateAvatar(value: unknown): AvatarId {
+  if (value !== undefined && !isAvatar(value))
+    throw new GameError('INVALID_AVATAR');
+  return savedAvatar(value);
+}
+export function member(name: unknown, avatar?: unknown) {
   const token = randomBytes(32).toString('hex');
   return {
     token,
     member: {
       id: randomUUID(),
       name: clean(name, 32, 'Name'),
+      avatar: validateAvatar(avatar),
       secret: hash(token),
       vote: null,
       spectator: false,
@@ -94,10 +102,15 @@ export function validateSettings(value: unknown): Settings {
     showAverage: input.showAverage,
   };
 }
-export function createRoom(name: unknown, title: unknown, options?: unknown) {
+export function createRoom(
+  name: unknown,
+  title: unknown,
+  options?: unknown,
+  avatar?: unknown,
+) {
   const settings =
     options === undefined ? { ...DEFAULT_SETTINGS } : validateSettings(options);
-  const joined = member(name);
+  const joined = member(name, avatar);
   const room: Room = {
     code: randomBytes(6).toString('hex').toUpperCase(),
     title: clean(title, 80, 'Raumname'),
@@ -116,6 +129,7 @@ export function normalizeRoom(room: Room) {
   room.settings = { ...DEFAULT_SETTINGS, ...room.settings };
   room.members.forEach((m) => {
     m.spectator ??= false;
+    m.avatar = savedAvatar(m.avatar);
   });
   return room;
 }
@@ -144,6 +158,10 @@ export function action(
 ) {
   normalizeRoom(room);
   const type = input.type;
+  if (type === 'avatar') {
+    user.avatar = validateAvatar(input.avatar);
+    return;
+  }
   if (type === 'spectator') {
     if (typeof input.value !== 'boolean') throw new GameError('INVALID_MODE');
     if (room.revealed) throw new GameError('MODE_LOCKED', 409);

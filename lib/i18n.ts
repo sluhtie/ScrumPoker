@@ -12,6 +12,16 @@ export function savedLanguage(value: unknown): Language {
     : 'en';
 }
 export const en = {
+  chooseAvatar: 'Choose your avatar',
+  avatarHint: 'Find your table personality.',
+  changeAvatar: 'Change avatar',
+  avatarSaved: 'Looking good. Avatar saved.',
+  avatarfox: 'Fox',
+  avatarcat: 'Cat',
+  avatarghost: 'Ghost',
+  avatarrobot: 'Robot',
+  avatarfrog: 'Frog',
+  avataraxolotl: 'Axolotl',
   home: 'Planning Club home',
   close: 'Close',
   observer: 'Observer',
@@ -96,6 +106,16 @@ export const en = {
 };
 export type MessageKey = keyof typeof en;
 export const de: Record<MessageKey, string> = {
+  chooseAvatar: 'Wähle deinen Avatar',
+  avatarHint: 'Dein Look am Pokertisch.',
+  changeAvatar: 'Avatar ändern',
+  avatarSaved: 'Steht dir. Avatar gespeichert.',
+  avatarfox: 'Fuchs',
+  avatarcat: 'Katze',
+  avatarghost: 'Geist',
+  avatarrobot: 'Roboter',
+  avatarfrog: 'Frosch',
+  avataraxolotl: 'Axolotl',
   home: 'Planning Club Startseite',
   close: 'Schließen',
   observer: 'Beobachter',
@@ -179,6 +199,16 @@ export const de: Record<MessageKey, string> = {
   deckLockedHint: 'Zum Deckwechsel die Runde aufdecken oder neu starten.',
 };
 export const es: Record<MessageKey, string> = {
+  chooseAvatar: 'Elige tu avatar',
+  avatarHint: 'Dale personalidad a tu sitio en la mesa.',
+  changeAvatar: 'Cambiar avatar',
+  avatarSaved: 'Te queda genial. Avatar guardado.',
+  avatarfox: 'Zorro',
+  avatarcat: 'Gato',
+  avatarghost: 'Fantasma',
+  avatarrobot: 'Robot',
+  avatarfrog: 'Rana',
+  avataraxolotl: 'Ajolote',
   home: 'Inicio de Planning Club',
   close: 'Cerrar',
   observer: 'Observador',
@@ -262,6 +292,16 @@ export const es: Record<MessageKey, string> = {
   deckLockedHint: 'Revela o reinicia la ronda para cambiar el mazo.',
 };
 export const fr: Record<MessageKey, string> = {
+  chooseAvatar: 'Choisis ton avatar',
+  avatarHint: 'Affiche ton style à la table.',
+  changeAvatar: 'Changer d’avatar',
+  avatarSaved: 'Ça te va bien. Avatar enregistré.',
+  avatarfox: 'Renard',
+  avatarcat: 'Chat',
+  avatarghost: 'Fantôme',
+  avatarrobot: 'Robot',
+  avatarfrog: 'Grenouille',
+  avataraxolotl: 'Axolotl',
   home: 'Accueil Planning Club',
   close: 'Fermer',
   observer: 'Observateur',
@@ -355,6 +395,12 @@ export function translate(
   );
 }
 export const errorMessages = {
+  INVALID_AVATAR: {
+    en: 'Please choose an avatar from the collection.',
+    de: 'Bitte wähle einen Avatar aus der Auswahl.',
+    es: 'Elige un avatar de la colección.',
+    fr: 'Choisis un avatar dans la collection.',
+  },
   INVALID_NAME: {
     en: 'Please enter a name with 1–32 characters.',
     de: 'Name: bitte 1–32 Zeichen eingeben.',

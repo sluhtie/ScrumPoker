@@ -89,6 +89,8 @@ Prüfen bei laufender App und PostgreSQL: `npm run test:sharing`. Der Test kontr
 
 ## Ablauf
 
+Bei der Namenseingabe lässt sich über das Profilbild einer von sechs Cartoon-Avataren auswählen. Der Browser merkt sich die Auswahl für neue Räume; im Raum wird sie in PostgreSQL gespeichert und für alle Teilnehmer angezeigt. Ein Klick auf den eigenen Namen/Avatar am Tisch öffnet die Auswahl erneut. Das funktioniert auch während einer Runde, ohne Stimmen zu verändern. Bestehende Räume erhalten automatisch den Fuchs als Standardavatar. Bilder und Auswahltexte sind lokal eingebunden, die Oberfläche ist in allen vier Sprachen verfügbar. [Bilddateien und Prompts](docs/avatar-artwork.md)
+
 1. Namen und Raumnamen eingeben, Raum erstellen.
 2. Einladungslink kopieren und mit dem Team teilen.
 3. Moderation fügt Stories hinzu; alle wählen ihre Karten.

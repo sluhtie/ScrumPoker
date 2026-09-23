@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       await mutate(codeFrom(request), (room) => {
         if (input.type === 'join') {
           if (room.members.length >= 30) throw new GameError('ROOM_FULL');
-          const joined = member(input.name);
+          const joined = member(input.name, input.avatar);
           room.members.push(joined.member);
           return { token: joined.token, room: view(room, joined.member) };
         }
