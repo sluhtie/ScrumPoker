@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type CSSProperties,
 } from 'react';
+import { Menu } from '@base-ui/react/menu';
 import {
   ArrowRight,
   Plus,
@@ -28,6 +29,7 @@ import {
   Pencil,
   UserMinus,
   LockKeyhole,
+  ChevronDown,
 } from 'lucide-react';
 import {
   AVATARS,
@@ -141,14 +143,38 @@ function Seat({
   room,
   style,
   onEdit,
+  onModerate,
+  busy = false,
 }: {
   player: Player;
   room: PublicRoom;
   style?: CSSProperties;
   onEdit?: () => void;
+  onModerate?: (data: Record<string, unknown>) => void;
+  busy?: boolean;
 }) {
   const { t } = useLanguage();
   const NameTag = onEdit ? 'button' : 'div';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const canModerate =
+    room.you === room.hostId && player.id !== room.hostId && !!onModerate;
+  const nameContent = (
+    <>
+      <img
+        className="avatar"
+        src={avatarImage(player.avatar)}
+        alt=""
+        width={32}
+        height={32}
+      />
+      <span className="player-name">
+        {player.name}
+        {player.id === room.you ? ` · ${t('you')}` : ''}
+      </span>
+      {player.id === room.hostId && <Crown size={12} aria-label={t('host')} />}
+    </>
+  );
   return (
     <div
       className={`seat ${player.id === room.you ? 'own-seat' : ''}`}
@@ -179,136 +205,98 @@ function Seat({
           </div>
         </div>
       )}
-      <NameTag
-        className="name-pill"
-        title={onEdit ? t('changeAvatar') : player.name}
-        onClick={onEdit}
-        aria-label={
-          onEdit ? `${t('changeAvatar')} · ${player.name}` : undefined
-        }
-        aria-haspopup={onEdit ? 'dialog' : undefined}
-      >
-        <img
-          className="avatar"
-          src={avatarImage(player.avatar)}
-          alt=""
-          width={32}
-          height={32}
-        />
-        <span className="player-name">
-          {player.name}
-          {player.id === room.you ? ` · ${t('you')}` : ''}
-        </span>
-        {player.id === room.hostId && (
-          <Crown size={12} aria-label={t('host')} />
-        )}
-      </NameTag>
-    </div>
-  );
-}
-function ParticipantsDialog({
-  room,
-  busy,
-  error,
-  onClose,
-  onAction,
-}: {
-  room: PublicRoom;
-  busy: boolean;
-  error: ReactNode;
-  onClose: () => void;
-  onAction: (data: Record<string, unknown>) => void;
-}) {
-  const { t } = useLanguage();
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  return (
-    <Modal title={t('participants')} onClose={onClose}>
-      <p className="moderation-hint">{t('moderationHint')}</p>
-      {error}
-      <ul className="participant-list">
-        {room.members.map((player) => (
-          <li className="participant-row" key={player.id}>
-            <div className="participant-info">
-              <img
-                src={avatarImage(player.avatar)}
-                width={40}
-                height={40}
-                alt=""
-              />
-              <div>
-                <strong>{player.name}</strong>
-                <span>
-                  {player.id === room.hostId
-                    ? t('host')
-                    : player.spectator
-                      ? t('observer')
-                      : t('voter')}
-                  {player.observerLocked && (
-                    <LockKeyhole size={12} aria-label={t('makeObserver')} />
-                  )}
-                </span>
-              </div>
-            </div>
-            {player.id !== room.hostId &&
-              (confirmId === player.id ? (
-                <fieldset
-                  className="remove-confirm"
-                  aria-label={t('removeMemberConfirm', { name: player.name })}
-                >
-                  <p>{t('removeMemberConfirm', { name: player.name })}</p>
-                  <div className="participant-actions">
-                    <button
-                      className="quiet"
-                      disabled={busy}
-                      onClick={() => setConfirmId(null)}
+      {canModerate ? (
+        <Menu.Root
+          open={menuOpen}
+          onOpenChange={(open) => {
+            setMenuOpen(open);
+            if (!open) setConfirmRemove(false);
+          }}
+        >
+          <Menu.Trigger
+            className="name-pill manageable-seat"
+            aria-label={t('manageParticipant', { name: player.name })}
+            title={player.name}
+          >
+            {nameContent}
+            <ChevronDown className="seat-menu-chevron" size={12} />
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner
+              side="bottom"
+              align="center"
+              sideOffset={8}
+              className="seat-menu-positioner"
+            >
+              <Menu.Popup
+                className="seat-menu"
+                aria-label={t('manageParticipant', { name: player.name })}
+              >
+                <div className="seat-menu-heading">
+                  <strong>{player.name}</strong>
+                  <span>{player.spectator ? t('observer') : t('voter')}</span>
+                </div>
+                {confirmRemove ? (
+                  <>
+                    <p className="seat-menu-confirm">
+                      {t('removeMemberConfirm', { name: player.name })}
+                    </p>
+                    <Menu.Item
+                      className="seat-menu-item"
+                      onClick={() => setMenuOpen(false)}
                     >
                       {t('cancel')}
-                    </button>
-                    <button
-                      className="danger-button"
-                      disabled={busy}
-                      onClick={() =>
-                        onAction({ type: 'removeMember', id: player.id })
-                      }
-                    >
-                      {t('removeMember')}
-                    </button>
-                  </div>
-                </fieldset>
-              ) : (
-                <div className="participant-actions">
-                  <button
-                    className={player.observerLocked ? 'quiet active' : 'quiet'}
+                    </Menu.Item>
+                  </>
+                ) : (
+                  <Menu.Item
+                    className="seat-menu-item"
                     disabled={busy}
-                    aria-label={`${player.observerLocked ? t('allowVoting') : t('makeObserver')} · ${player.name}`}
                     onClick={() =>
-                      onAction({
+                      onModerate?.({
                         type: 'setObserver',
                         id: player.id,
                         value: !player.observerLocked,
                       })
                     }
                   >
-                    <Eye size={15} />
+                    <Eye size={16} />
                     {player.observerLocked
                       ? t('allowVoting')
                       : t('makeObserver')}
-                  </button>
-                  <button
-                    className="icon-button danger-button"
-                    disabled={busy}
-                    aria-label={`${t('removeMember')} · ${player.name}`}
-                    title={t('removeMember')}
-                    onClick={() => setConfirmId(player.id)}
-                  >
-                    <UserMinus size={17} />
-                  </button>
-                </div>
-              ))}
-          </li>
-        ))}
-      </ul>
-    </Modal>
+                  </Menu.Item>
+                )}
+                <Menu.Item
+                  className="seat-menu-item seat-menu-danger"
+                  disabled={busy}
+                  closeOnClick={confirmRemove}
+                  onClick={() => {
+                    if (confirmRemove)
+                      onModerate?.({ type: 'removeMember', id: player.id });
+                    else setConfirmRemove(true);
+                  }}
+                >
+                  <UserMinus size={16} />
+                  {t('removeMember')}
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ) : (
+        <NameTag
+          className="name-pill"
+          title={onEdit ? t('changeAvatar') : player.name}
+          onClick={onEdit}
+          aria-label={
+            onEdit ? `${t('changeAvatar')} · ${player.name}` : undefined
+          }
+          aria-haspopup={onEdit ? 'dialog' : undefined}
+        >
+          {nameContent}
+        </NameTag>
+      )}
+    </div>
   );
 }
 function AvatarDialog({
@@ -575,9 +563,9 @@ export default function Home() {
   const [toast, setToast] = useState<MessageKey | ''>('');
   const [loaded, setLoaded] = useState(false);
   const [storiesOpen, setStoriesOpen] = useState(false);
-  const [modal, setModal] = useState<
-    'settings' | 'invite' | 'avatar' | 'participants' | null
-  >(null);
+  const [modal, setModal] = useState<'settings' | 'invite' | 'avatar' | null>(
+    null,
+  );
   const sequence = useRef(0);
   const mutating = useRef(false);
   const roomRef = useRef<PublicRoom | null>(null);
@@ -743,6 +731,13 @@ export default function Home() {
       if (data.type === 'addStory') setStory('');
       done?.();
     });
+  }
+  function moderate(data: Record<string, unknown>) {
+    void act(data, () =>
+      setToast(
+        data.type === 'removeMember' ? 'memberRemoved' : 'permissionsSaved',
+      ),
+    );
   }
   function openSettings() {
     if (!room) return;
@@ -996,20 +991,6 @@ export default function Home() {
         <div className="room-title">{room.title}</div>
         <div className="toolbar">
           <LanguageSelector />
-          {host && (
-            <button
-              className="icon-button"
-              aria-label={t('participants')}
-              title={t('participants')}
-              aria-haspopup="dialog"
-              onClick={() => {
-                setError('');
-                setModal('participants');
-              }}
-            >
-              <Users size={19} />
-            </button>
-          )}
           <button
             className={`quiet ${storiesOpen ? 'active' : ''}`}
             aria-label={t('stories')}
@@ -1192,6 +1173,8 @@ export default function Home() {
                     player={player}
                     room={room}
                     style={style}
+                    onModerate={host ? moderate : undefined}
+                    busy={busy}
                     onEdit={player.id === room.you ? openAvatar : undefined}
                   />
                 ) : (
@@ -1211,7 +1194,13 @@ export default function Home() {
           {ordered.length > 8 && (
             <div className="extra-seats">
               {ordered.slice(8).map((player) => (
-                <Seat key={player.id} player={player} room={room} />
+                <Seat
+                  key={player.id}
+                  player={player}
+                  room={room}
+                  onModerate={host ? moderate : undefined}
+                  busy={busy}
+                />
               ))}
             </div>
           )}
@@ -1401,23 +1390,6 @@ export default function Home() {
               setModal(null);
               setToast('avatarSaved');
             })
-          }
-        />
-      )}
-      {modal === 'participants' && host && (
-        <ParticipantsDialog
-          room={room}
-          busy={busy}
-          error={errorBox}
-          onClose={() => setModal(null)}
-          onAction={(data) =>
-            void act(data, () =>
-              setToast(
-                data.type === 'removeMember'
-                  ? 'memberRemoved'
-                  : 'permissionsSaved',
-              ),
-            )
           }
         />
       )}

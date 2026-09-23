@@ -12,6 +12,7 @@ export function savedLanguage(value: unknown): Language {
     : 'en';
 }
 export const en = {
+  manageParticipant: 'Manage {name}',
   participants: 'Participants',
   voter: 'Can vote',
   makeObserver: 'Observer only',
@@ -120,6 +121,7 @@ export const en = {
 };
 export type MessageKey = keyof typeof en;
 export const de: Record<MessageKey, string> = {
+  manageParticipant: '{name} verwalten',
   participants: 'Teilnehmer',
   voter: 'Darf abstimmen',
   makeObserver: 'Nur zuschauen',
@@ -227,6 +229,7 @@ export const de: Record<MessageKey, string> = {
   deckLockedHint: 'Zum Deckwechsel die Runde aufdecken oder neu starten.',
 };
 export const es: Record<MessageKey, string> = {
+  manageParticipant: 'Gestionar a {name}',
   participants: 'Participantes',
   voter: 'Puede votar',
   makeObserver: 'Solo observar',
@@ -334,6 +337,7 @@ export const es: Record<MessageKey, string> = {
   deckLockedHint: 'Revela o reinicia la ronda para cambiar el mazo.',
 };
 export const fr: Record<MessageKey, string> = {
+  manageParticipant: 'Gérer {name}',
   participants: 'Participants',
   voter: 'Peut voter',
   makeObserver: 'Observation uniquement',
