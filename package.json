@@ -13,7 +13,8 @@
     "format": "oxfmt",
     "test": "node --experimental-transform-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:integration": "node --env-file=.env tests/integration.mjs"
+    "test:integration": "node --env-file=.env tests/integration.mjs",
+    "test:sharing": "node --env-file=.env tests/share-integration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

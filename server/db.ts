@@ -50,6 +50,15 @@ export async function read(code: string) {
   if (!rows[0]) throw new GameError('ROOM_NOT_FOUND', 404);
   return rows[0].data as Room;
 }
+/** A shared invitation exposes only its name, never members, stories or votes. */
+export async function readShareTitle(code: string): Promise<string | null> {
+  await ready();
+  const { rows } = await pool().query({
+    text: "SELECT data->>'title' AS title FROM poker_rooms WHERE code=$1",
+    values: [code],
+  });
+  return typeof rows[0]?.title === 'string' ? rows[0].title.slice(0, 80) : null;
+}
 export async function mutate<T>(
   code: string,
   fn: (room: Room) => T,

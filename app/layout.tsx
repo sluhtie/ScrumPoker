@@ -6,6 +6,12 @@ export const metadata = {
   description:
     'Estimate together. Plan better. Live Scrum Poker for your team.',
 };
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#101014',
+  colorScheme: 'dark',
+};
 export default function RootLayout({
   children,
 }: {

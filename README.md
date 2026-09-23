@@ -74,6 +74,19 @@ docker compose --env-file .env.production -f compose.prod.yaml build app
 
 Zum Starten der Produktionsdatei ist das externe `dokploy-network` erforderlich; auf dem Dokploy-Server existiert es bereits. Die Dev-Datei wird beim Produktionsdeployment nicht zusätzlich geladen.
 
+## Link-Vorschauen
+
+Startseite und Raum-Einladungen liefern Titel, Beschreibung, Open-Graph- und X-Metadaten bereits im serverseitigen HTML. Englisch ist wie in der App die Standardsprache. Die lokale Sprachauswahl ändert die öffentliche Link-Vorschau nicht.
+
+- Startseite: `public/og.png` mit „Everyone at the table.“
+- Einladungen: `public/og-invite.png` mit „Your seat is ready.“ und dem aktuellen Raumnamen im Vorschautitel.
+- Bilder: PNG, 1734 × 907 Pixel; öffentlich ohne Anmeldung abrufbar.
+- Nur der Raumname wird für Link-Vorschauen gelesen. Teilnehmer, Stories, Stimmen und Zugangstoken erscheinen nicht darin. Raumlinks haben `noindex, nofollow`; ungültige oder unbekannte Räume erhalten eine allgemeine Einladungsvorschau.
+
+In Dokploy muss **`APP_ORIGIN` der öffentlichen HTTPS-Domain entsprechen**, damit Bild- und Linkadressen stimmen. Dieser Wert wird zur Laufzeit gelesen; beim Domainwechsel den Container mit der neuen Variable neu starten. Die fertigen Bilder werden automatisch in das Produktionsimage übernommen. Externe Dienste können bereits geteilte Vorschauen zwischenspeichern.
+
+Prüfen bei laufender App und PostgreSQL: `npm run test:sharing`. Der Test kontrolliert Startseite, zwei Räume, Sonderzeichen, Datenabgrenzung und Bildabruf und entfernt anschließend seine Testräume. Umsetzung über die [Metadata API](https://nextjs.org/docs/app/api-reference/functions/generate-metadata). Bildprompts und Herkunft stehen in [docs/social-images.md](docs/social-images.md).
+
 ## Ablauf
 
 1. Namen und Raumnamen eingeben, Raum erstellen.
