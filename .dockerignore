@@ -4,3 +4,10 @@ dist
 .env*
 .wrangler
 outputs
+.vinext
+.next
+coverage
+work
+*.tsbuildinfo
+*.log
+.DS_Store

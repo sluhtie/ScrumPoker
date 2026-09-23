@@ -5,47 +5,74 @@ Interaktive Scrum-Poker-App mit Englisch als Standardsprache sowie Deutsch, Span
 ## Lokal mit Docker Compose
 
 ```sh
-docker compose up --build
+docker compose -f compose.dev.yaml up -d
+# Logs beim ersten Installieren und Starten ansehen:
+docker compose -f compose.dev.yaml logs -f app
 ```
 
-App: http://localhost:3000. PostgreSQL 17 läuft im Container, die Daten liegen dauerhaft im Volume `postgres_data`. Quellcodeänderungen werden automatisch geladen. Falls Port 3000 bereits von einer lokalen Entwicklungssitzung belegt ist, diese vorher beenden.
+App: http://localhost:3000. Die Entwicklungs-App verwendet das Node-24-Image, installiert beim Start die gesperrten Abhängigkeiten mit `npm ci` und lädt Quellcodeänderungen automatisch. `node_modules` und der npm-Downloadcache liegen in separaten Volumes. PostgreSQL 17 läuft im Container; Daten bleiben im Volume `postgres_data` erhalten. Die bisherigen Volume-Namen bleiben unverändert.
+
+App und PostgreSQL sind lokal an `127.0.0.1` gebunden. Mit `DEV_APP_PORT` und `DEV_DB_PORT` lassen sich belegte Ports umgehen (Standard: 3000 und 5432). Diese Werte können in der lokalen `.env` stehen. Bei geändertem Datenbank-Port muss für eine direkt auf dem Host gestartete App auch `DATABASE_URL` angepasst werden.
 
 ```sh
-docker compose down
+docker compose -f compose.dev.yaml down
 ```
 
-Beendet die Container und behält die Daten. `docker compose down -v` löscht die lokalen Daten endgültig.
+Beendet die Container und behält die Daten. `down -v` löscht die lokalen Daten und Caches endgültig. Die früheren Dateien `compose.yaml` und `compose.production.yaml` wurden durch `compose.dev.yaml` und `compose.prod.yaml` ersetzt; deshalb den Dateinamen jetzt explizit mit `-f` angeben.
 
 ### App lokal, nur PostgreSQL in Docker
 
-Voraussetzung: Node.js 24 und Docker Desktop.
+Voraussetzung: Node.js 24 und Docker.
 
 ```sh
 cp .env.example .env
-docker compose up -d db
+docker compose -f compose.dev.yaml up -d db
 npm ci
 npm run dev
 ```
 
-## Produktion
+## Produktion auf Dokploy
 
-Der Produktionscontainer enthält die gebaute Node-App und wird ohne Root-Rechte ausgeführt. PostgreSQL wird als externe Datenbank per Umgebungsvariablen angebunden. Verwende dafür eine separate Env-Datei, z. B. `.env.production`:
+`compose.prod.yaml` ist eine eigenständige Deployment-Konfiguration. Sie baut aus dem Repository ein mehrstufiges Image mit einem kleinen Node-Runtime-Container. Das Build-Rezept steht direkt unter `dockerfile_inline`; eine separate Dockerfile entfällt. Das benötigt Docker Compose ab 2.17 und BuildKit. [Docker-Build-Spezifikation](https://docs.docker.com/reference/compose-file/build/#dockerfile_inline)
 
-```dotenv
-DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DATABASE
-DATABASE_SSL=true
-DATABASE_CA=
-APP_ORIGIN=https://poker.example.com
-PORT=3000
-```
+Die laufende App installiert keine Abhängigkeiten und baut nicht erneut. Sie startet als Benutzer `node`, bekommt ihre Konfiguration zur Laufzeit und benötigt keine Quellcode-Mounts. Der Container verwendet einen Init-Prozess, einen Datenbank-Healthcheck, begrenzte Logs und eine Restart-Policy. PostgreSQL wird separat in Dokploy oder extern betrieben; die Verbindung erfolgt weiterhin über `DATABASE_URL`.
+
+### Einrichtung in Dokploy
+
+1. Ein **Docker-Compose-Service** mit dem Git-Repository anlegen. Als Compose-Datei **`compose.prod.yaml`** und als Build-Kontext das Repository-Wurzelverzeichnis verwenden.
+2. Den Modus **Docker Compose** wählen. Docker Stack unterstützt den hier verwendeten Image-Build nicht. [Dokploy Compose](https://docs.dokploy.com/docs/core/docker-compose)
+3. Unter **Environment** die folgenden Werte hinterlegen. Die Compose-Datei reicht nur die benötigten Variablen an den Container weiter:
+
+   ```dotenv
+   DATABASE_URL=postgres://USER:PASSWORD@DATABASE_HOST:5432/DATABASE
+   DATABASE_SSL=false
+   APP_ORIGIN=https://poker.example.com
+   # Optional: PEM-Zertifikat bei eigener TLS-Zertifizierungsstelle
+   DATABASE_CA=
+   ```
+
+   `DATABASE_URL` und `APP_ORIGIN` sind Pflichtwerte. Die Zugangsdaten gehören in Dokploy, nicht ins Repository. Sonderzeichen im Passwort müssen in der URL korrekt URL-kodiert sein. `APP_ORIGIN` ist die öffentliche HTTPS-Adresse ohne abschließenden Slash oder Pfad.
+
+4. Unter **Domains** die Domain hinzufügen, **Service `app`**, **Container-Port `3000`**, Pfad `/`, HTTPS/Let's Encrypt aktivieren. Dokploy erzeugt die Traefik-Routingregeln. Es werden keine Host-Ports belegt; Port 3000 ist nur innerhalb der Container-Netzwerke erreichbar. Domainänderungen erfordern ein erneutes Deployment. [Dokploy Domains](https://docs.dokploy.com/docs/core/docker-compose/domains)
+5. **Deploy** starten. Nach dem Start sollten `/` und `/api/health` über die konfigurierte Domain erreichbar sein.
+
+### Datenbank und Netzwerk
+
+Die App hängt ausdrücklich im vorhandenen externen `dokploy-network`. Für diese Konfiguration **Isolated Deployments ausgeschaltet lassen**. Bei einer Dokploy-PostgreSQL-Datenbank ihre interne Verbindungsadresse nutzen und sicherstellen, dass sie ebenfalls über dieses Netzwerk erreichbar ist. Eine interne Datenbank benötigt keinen öffentlich freigegebenen Port. Für eine externe Datenbank muss ihr Host vom Dokploy-Server aus erreichbar sein.
+
+Bei einer internen PostgreSQL-Instanz ohne TLS `DATABASE_SSL=false` setzen, wie im Beispiel. Für eine TLS-fähige externe Datenbank `DATABASE_SSL=true` verwenden; dies ist auch der Standard, falls die Variable fehlt. Ein eigenes CA-Zertifikat kann über `DATABASE_CA` als PEM angegeben werden (`\n` wird unterstützt). Die Zertifikatsprüfung bleibt aktiv. Keine widersprüchlichen `sslmode`-Parameter in die Verbindungs-URL aufnehmen.
+
+Die Tabelle `poker_rooms` wird bei der ersten Raumanfrage automatisch angelegt. Der Datenbankbenutzer benötigt CREATE-Rechte für diese Initialisierung sowie SELECT, INSERT und UPDATE. Der Healthcheck `/api/health` prüft die Datenbankverbindung und liefert bei Problemen HTTP 503. Datenbanksicherungen werden separat in der Datenbank-Betriebsumgebung eingerichtet.
+
+### Konfiguration vorab prüfen
 
 ```sh
-docker compose --env-file .env.production -f compose.production.yaml up -d --build
+# Lokal eine eigene .env.production mit den Deployment-Werten anlegen:
+docker compose --env-file .env.production -f compose.prod.yaml config --quiet
+docker compose --env-file .env.production -f compose.prod.yaml build app
 ```
 
-Ein HTTPS-Reverse-Proxy muss auf den lokal gebundenen Port 3000 zeigen. `APP_ORIGIN` muss exakt der öffentlichen Herkunft ohne abschließenden Slash entsprechen. Bei einem eigenen Datenbankzertifikat kann `DATABASE_CA` das PEM-Zertifikat enthalten (`\n` wird unterstützt). Die TLS-Zertifikatsprüfung bleibt aktiviert. Bei Datenbanken mit TLS bitte SSL-Einstellungen über diese Variablen steuern, keine widersprüchlichen `sslmode`-Parameter in der Verbindungs-URL setzen.
-
-Die Tabelle `poker_rooms` wird bei der ersten Raumanfrage automatisch angelegt. Der Datenbankbenutzer benötigt dafür CREATE-Rechte; danach reichen SELECT, INSERT und UPDATE. Datenbanksicherungen und HTTPS werden durch die Betriebsumgebung bereitgestellt. Der Healthcheck `/api/health` überprüft die Datenbankverbindung.
+Zum Starten der Produktionsdatei ist das externe `dokploy-network` erforderlich; auf dem Dokploy-Server existiert es bereits. Die Dev-Datei wird beim Produktionsdeployment nicht zusätzlich geladen.
 
 ## Ablauf
 
