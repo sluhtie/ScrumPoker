@@ -91,7 +91,7 @@ Prüfen bei laufender App und PostgreSQL: `npm run test:sharing`. Der Test kontr
 
 ### Raum-Moderation
 
-Der Raum-Ersteller öffnet über das Teilnehmer-Symbol in der Kopfleiste die Moderation. Dort lassen sich andere Teilnehmer auf **nur zuschauen** setzen, wieder zum Abstimmen freigeben oder nach Bestätigung entfernen. Ein erzwungener Observer kann die Sperre nicht selbst aufheben; sie bleibt über Rundenwechsel und Neuladen hinweg gespeichert. Der Leader kann sich über diese Aktionen nicht selbst entfernen oder sperren.
+Der Raum-Ersteller klickt am Pokertisch auf den Namen oder Avatar eines anderen Teilnehmers, um dessen Aktionsmenü zu öffnen. Das funktioniert auch bei zusätzlichen Sitzplätzen unter dem Tisch. Dort lassen sich andere Teilnehmer auf **nur zuschauen** setzen, wieder zum Abstimmen freigeben oder nach Bestätigung entfernen. Ein erzwungener Observer kann die Sperre nicht selbst aufheben; sie bleibt über Rundenwechsel und Neuladen hinweg gespeichert. Der Leader kann sich über diese Aktionen nicht selbst entfernen oder sperren.
 
 Beim Sperren oder Entfernen entfällt die aktuelle Stimme; die automatische Aufdeckung berücksichtigt nur die verbleibenden stimmberechtigten Teilnehmer. Entfernte Sitzungen verlieren ihren Lese- und Schreibzugriff, und die Oberfläche blendet den Raum beim nächsten Abgleich aus. Dies ist eine Sperre der bisherigen Raumsitzung, kein dauerhafter Account-Bann: Die App hat keine registrierten Accounts, und ein neuer Browser ohne die bisherigen Sitzungsdaten kann über den Einladungslink neu beitreten. Rechte und Mitgliedschaften werden im bestehenden PostgreSQL-JSONB gespeichert; keine Migration erforderlich.
 
