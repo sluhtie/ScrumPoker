@@ -7,6 +7,7 @@ import {
   useState,
   useEffect,
   useRef,
+  useCallback,
   type ReactNode,
   type CSSProperties,
 } from 'react';
@@ -25,6 +26,8 @@ import {
   ChevronRight,
   Diamond,
   Pencil,
+  UserMinus,
+  LockKeyhole,
 } from 'lucide-react';
 import {
   AVATARS,
@@ -57,6 +60,7 @@ type Player = {
   vote: string | null;
   voted: boolean;
   spectator: boolean;
+  observerLocked?: boolean;
 };
 type PublicRoom = Omit<Room, 'members'> & { you: string; members: Player[] };
 async function request<T = { code: string; token: string; room: PublicRoom }>(
@@ -200,6 +204,111 @@ function Seat({
         )}
       </NameTag>
     </div>
+  );
+}
+function ParticipantsDialog({
+  room,
+  busy,
+  error,
+  onClose,
+  onAction,
+}: {
+  room: PublicRoom;
+  busy: boolean;
+  error: ReactNode;
+  onClose: () => void;
+  onAction: (data: Record<string, unknown>) => void;
+}) {
+  const { t } = useLanguage();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  return (
+    <Modal title={t('participants')} onClose={onClose}>
+      <p className="moderation-hint">{t('moderationHint')}</p>
+      {error}
+      <ul className="participant-list">
+        {room.members.map((player) => (
+          <li className="participant-row" key={player.id}>
+            <div className="participant-info">
+              <img
+                src={avatarImage(player.avatar)}
+                width={40}
+                height={40}
+                alt=""
+              />
+              <div>
+                <strong>{player.name}</strong>
+                <span>
+                  {player.id === room.hostId
+                    ? t('host')
+                    : player.spectator
+                      ? t('observer')
+                      : t('voter')}
+                  {player.observerLocked && (
+                    <LockKeyhole size={12} aria-label={t('makeObserver')} />
+                  )}
+                </span>
+              </div>
+            </div>
+            {player.id !== room.hostId &&
+              (confirmId === player.id ? (
+                <fieldset
+                  className="remove-confirm"
+                  aria-label={t('removeMemberConfirm', { name: player.name })}
+                >
+                  <p>{t('removeMemberConfirm', { name: player.name })}</p>
+                  <div className="participant-actions">
+                    <button
+                      className="quiet"
+                      disabled={busy}
+                      onClick={() => setConfirmId(null)}
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      className="danger-button"
+                      disabled={busy}
+                      onClick={() =>
+                        onAction({ type: 'removeMember', id: player.id })
+                      }
+                    >
+                      {t('removeMember')}
+                    </button>
+                  </div>
+                </fieldset>
+              ) : (
+                <div className="participant-actions">
+                  <button
+                    className={player.observerLocked ? 'quiet active' : 'quiet'}
+                    disabled={busy}
+                    aria-label={`${player.observerLocked ? t('allowVoting') : t('makeObserver')} · ${player.name}`}
+                    onClick={() =>
+                      onAction({
+                        type: 'setObserver',
+                        id: player.id,
+                        value: !player.observerLocked,
+                      })
+                    }
+                  >
+                    <Eye size={15} />
+                    {player.observerLocked
+                      ? t('allowVoting')
+                      : t('makeObserver')}
+                  </button>
+                  <button
+                    className="icon-button danger-button"
+                    disabled={busy}
+                    aria-label={`${t('removeMember')} · ${player.name}`}
+                    title={t('removeMember')}
+                    onClick={() => setConfirmId(player.id)}
+                  >
+                    <UserMinus size={17} />
+                  </button>
+                </div>
+              ))}
+          </li>
+        ))}
+      </ul>
+    </Modal>
   );
 }
 function AvatarDialog({
@@ -457,6 +566,7 @@ export default function Home() {
   const [joinCode, setJoinCode] = useState('');
   const [token, setToken] = useState('');
   const [room, setRoom] = useState<PublicRoom | null>(null);
+  const [accessEnded, setAccessEnded] = useState(false);
   const [error, setError] = useState('');
   const [connectionError, setConnectionError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -465,12 +575,18 @@ export default function Home() {
   const [toast, setToast] = useState<MessageKey | ''>('');
   const [loaded, setLoaded] = useState(false);
   const [storiesOpen, setStoriesOpen] = useState(false);
-  const [modal, setModal] = useState<'settings' | 'invite' | 'avatar' | null>(
-    null,
-  );
+  const [modal, setModal] = useState<
+    'settings' | 'invite' | 'avatar' | 'participants' | null
+  >(null);
   const sequence = useRef(0);
   const mutating = useRef(false);
   const roomRef = useRef<PublicRoom | null>(null);
+  const endAccess = useCallback(() => {
+    roomRef.current = null;
+    setRoom(null);
+    setModal(null);
+    setAccessEnded(true);
+  }, []);
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
@@ -535,7 +651,7 @@ export default function Home() {
     setLoaded(true);
   }, []);
   useEffect(() => {
-    if (!code || !token) return;
+    if (!code || !token || accessEnded) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
@@ -548,8 +664,13 @@ export default function Home() {
             setConnectionError('');
           }
         } catch (e) {
-          if (alive && seq === sequence.current)
+          if (alive && seq === sequence.current) {
+            if ((e as Error).message === 'REJOIN_REQUIRED') {
+              endAccess();
+              return;
+            }
             setConnectionError((e as Error).message);
+          }
         }
       }
       if (alive) timer = setTimeout(poll, 1500);
@@ -559,7 +680,7 @@ export default function Home() {
       alive = false;
       clearTimeout(timer);
     };
-  }, [code, token]);
+  }, [code, token, accessEnded, endAccess]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2500);
@@ -574,7 +695,8 @@ export default function Home() {
     try {
       await fn();
     } catch (e) {
-      setError((e as Error).message);
+      if ((e as Error).message === 'REJOIN_REQUIRED') endAccess();
+      else setError((e as Error).message);
     } finally {
       sequence.current++;
       mutating.current = false;
@@ -676,6 +798,26 @@ export default function Home() {
       )}
     </div>
   );
+
+  if (accessEnded)
+    return (
+      <div className="app">
+        <header className="topbar">
+          <Brand />
+          <LanguageSelector />
+        </header>
+        <main className="entry-page">
+          <div className="entry-card access-ended">
+            <UserMinus size={36} aria-hidden="true" />
+            <h1>{t('sessionEnded')}</h1>
+            <p className="muted">{t('sessionEndedHint')}</p>
+            <a className="text-link" href="/">
+              {t('back')}
+            </a>
+          </div>
+        </main>
+      </div>
+    );
 
   if (!room)
     return (
@@ -854,6 +996,20 @@ export default function Home() {
         <div className="room-title">{room.title}</div>
         <div className="toolbar">
           <LanguageSelector />
+          {host && (
+            <button
+              className="icon-button"
+              aria-label={t('participants')}
+              title={t('participants')}
+              aria-haspopup="dialog"
+              onClick={() => {
+                setError('');
+                setModal('participants');
+              }}
+            >
+              <Users size={19} />
+            </button>
+          )}
           <button
             className={`quiet ${storiesOpen ? 'active' : ''}`}
             aria-label={t('stories')}
@@ -1073,8 +1229,14 @@ export default function Home() {
               <button
                 className={`quiet mode-button ${me?.spectator ? 'active' : ''}`}
                 aria-pressed={!!me?.spectator}
-                disabled={busy || room.revealed}
-                title={room.revealed ? t('modeNextRound') : t('observerMode')}
+                disabled={busy || room.revealed || me?.observerLocked}
+                title={
+                  me?.observerLocked
+                    ? t('observerLocked')
+                    : room.revealed
+                      ? t('modeNextRound')
+                      : t('observerMode')
+                }
                 onClick={() =>
                   void act({ type: 'spectator', value: !me?.spectator })
                 }
@@ -1083,6 +1245,12 @@ export default function Home() {
                 <span>{t('watch')}</span>
               </button>
             </div>
+            {me?.observerLocked && (
+              <output className="observer-lock-note">
+                <LockKeyhole size={14} />
+                {t('observerLocked')}
+              </output>
+            )}
             {!me?.spectator && (
               <div className="hand-cards">
                 {deck.map((value, i) => (
@@ -1233,6 +1401,23 @@ export default function Home() {
               setModal(null);
               setToast('avatarSaved');
             })
+          }
+        />
+      )}
+      {modal === 'participants' && host && (
+        <ParticipantsDialog
+          room={room}
+          busy={busy}
+          error={errorBox}
+          onClose={() => setModal(null)}
+          onAction={(data) =>
+            void act(data, () =>
+              setToast(
+                data.type === 'removeMember'
+                  ? 'memberRemoved'
+                  : 'permissionsSaved',
+              ),
+            )
           }
         />
       )}

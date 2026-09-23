@@ -18,6 +18,7 @@ export type Member = {
   secret: string;
   vote: string | null;
   spectator: boolean;
+  observerLocked?: boolean;
 };
 export type Story = { id: string; title: string; estimate: string | null };
 export type Room = {
@@ -73,6 +74,7 @@ export function member(name: unknown, avatar?: unknown) {
       secret: hash(token),
       vote: null,
       spectator: false,
+      observerLocked: false,
     } as Member,
   };
 }
@@ -129,6 +131,7 @@ export function normalizeRoom(room: Room) {
   room.settings = { ...DEFAULT_SETTINGS, ...room.settings };
   room.members.forEach((m) => {
     m.spectator ??= false;
+    m.observerLocked ??= false;
     m.avatar = savedAvatar(m.avatar);
   });
   return room;
@@ -163,6 +166,7 @@ export function action(
     return;
   }
   if (type === 'spectator') {
+    if (user.observerLocked) throw new GameError('OBSERVER_LOCKED', 403);
     if (typeof input.value !== 'boolean') throw new GameError('INVALID_MODE');
     if (room.revealed) throw new GameError('MODE_LOCKED', 409);
     user.spectator = input.value;
@@ -171,7 +175,8 @@ export function action(
     return;
   }
   if (type === 'vote') {
-    if (user.spectator) throw new GameError('OBSERVER_CANNOT_VOTE', 403);
+    if (user.spectator || user.observerLocked)
+      throw new GameError('OBSERVER_CANNOT_VOTE', 403);
     if (input.round !== room.round) throw new GameError('STALE_VOTE', 409);
     if (!room.activeId || room.revealed)
       throw new GameError('VOTING_CLOSED', 409);
@@ -185,6 +190,24 @@ export function action(
     return;
   }
   if (user.id !== room.hostId) throw new GameError('HOST_ONLY', 403);
+  if (type === 'removeMember' || type === 'setObserver') {
+    if (typeof input.id !== 'string') throw new GameError('INVALID_REQUEST');
+    const target = room.members.find((m) => m.id === input.id);
+    if (!target) throw new GameError('MEMBER_NOT_FOUND', 404);
+    if (target.id === room.hostId)
+      throw new GameError('CANNOT_MODERATE_HOST', 403);
+    if (type === 'removeMember') {
+      // Removing the member also revokes the only stored credential for this session.
+      room.members = room.members.filter((m) => m.id !== target.id);
+    } else {
+      if (typeof input.value !== 'boolean') throw new GameError('INVALID_MODE');
+      target.observerLocked = input.value;
+      target.spectator = input.value;
+      target.vote = null;
+    }
+    autoReveal(room);
+    return;
+  }
   if (type === 'settings') {
     const title = clean(input.title, 80, 'Raumname');
     const settings = validateSettings(input);

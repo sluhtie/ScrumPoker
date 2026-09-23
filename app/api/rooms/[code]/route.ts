@@ -24,6 +24,12 @@ export async function POST(request: Request) {
     return json(
       await mutate(codeFrom(request), (room) => {
         if (input.type === 'join') {
+          // A known session cannot join again to reset its host-assigned role.
+          const existingToken = token(request);
+          if (existingToken) {
+            const existing = authenticate(room, existingToken);
+            return { token: existingToken, room: view(room, existing) };
+          }
           if (room.members.length >= 30) throw new GameError('ROOM_FULL');
           const joined = member(input.name, input.avatar);
           room.members.push(joined.member);

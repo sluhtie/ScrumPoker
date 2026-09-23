@@ -89,6 +89,16 @@ Prüfen bei laufender App und PostgreSQL: `npm run test:sharing`. Der Test kontr
 
 ## Ablauf
 
+### Raum-Moderation
+
+Der Raum-Ersteller öffnet über das Teilnehmer-Symbol in der Kopfleiste die Moderation. Dort lassen sich andere Teilnehmer auf **nur zuschauen** setzen, wieder zum Abstimmen freigeben oder nach Bestätigung entfernen. Ein erzwungener Observer kann die Sperre nicht selbst aufheben; sie bleibt über Rundenwechsel und Neuladen hinweg gespeichert. Der Leader kann sich über diese Aktionen nicht selbst entfernen oder sperren.
+
+Beim Sperren oder Entfernen entfällt die aktuelle Stimme; die automatische Aufdeckung berücksichtigt nur die verbleibenden stimmberechtigten Teilnehmer. Entfernte Sitzungen verlieren ihren Lese- und Schreibzugriff, und die Oberfläche blendet den Raum beim nächsten Abgleich aus. Dies ist eine Sperre der bisherigen Raumsitzung, kein dauerhafter Account-Bann: Die App hat keine registrierten Accounts, und ein neuer Browser ohne die bisherigen Sitzungsdaten kann über den Einladungslink neu beitreten. Rechte und Mitgliedschaften werden im bestehenden PostgreSQL-JSONB gespeichert; keine Migration erforderlich.
+
+Prüfung mit laufender App und lokaler Datenbank: `npm run test:moderation`.
+
+### Mitspielen
+
 Bei der Namenseingabe lässt sich über das Profilbild einer von sechs Cartoon-Avataren auswählen. Der Browser merkt sich die Auswahl für neue Räume; im Raum wird sie in PostgreSQL gespeichert und für alle Teilnehmer angezeigt. Ein Klick auf den eigenen Namen/Avatar am Tisch öffnet die Auswahl erneut. Das funktioniert auch während einer Runde, ohne Stimmen zu verändern. Bestehende Räume erhalten automatisch den Fuchs als Standardavatar. Bilder und Auswahltexte sind lokal eingebunden, die Oberfläche ist in allen vier Sprachen verfügbar. [Bilddateien und Prompts](docs/avatar-artwork.md)
 
 1. Namen und Raumnamen eingeben, Raum erstellen.

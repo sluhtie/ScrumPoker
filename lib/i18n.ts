@@ -12,6 +12,20 @@ export function savedLanguage(value: unknown): Language {
     : 'en';
 }
 export const en = {
+  participants: 'Participants',
+  voter: 'Can vote',
+  makeObserver: 'Observer only',
+  allowVoting: 'Allow voting',
+  removeMember: 'Remove',
+  removeMemberConfirm: 'Remove {name} from this room?',
+  memberRemoved: 'Participant removed',
+  permissionsSaved: 'Voting permissions updated',
+  observerLocked: 'The host has set you to observer only.',
+  moderationHint:
+    'Observer only removes the current vote. You can allow voting again at any time.',
+  sessionEnded: 'Your access to this room has ended.',
+  sessionEndedHint:
+    'You may have been removed by the host, or your session is no longer valid.',
   chooseAvatar: 'Choose your avatar',
   avatarHint: 'Find your table personality.',
   changeAvatar: 'Change avatar',
@@ -106,6 +120,20 @@ export const en = {
 };
 export type MessageKey = keyof typeof en;
 export const de: Record<MessageKey, string> = {
+  participants: 'Teilnehmer',
+  voter: 'Darf abstimmen',
+  makeObserver: 'Nur zuschauen',
+  allowVoting: 'Abstimmen erlauben',
+  removeMember: 'Entfernen',
+  removeMemberConfirm: '{name} aus diesem Raum entfernen?',
+  memberRemoved: 'Teilnehmer entfernt',
+  permissionsSaved: 'Abstimmungsrechte aktualisiert',
+  observerLocked: 'Die Moderation hat dich auf „nur zuschauen“ gesetzt.',
+  moderationHint:
+    '„Nur zuschauen“ entfernt die aktuelle Stimme. Du kannst das Abstimmen jederzeit wieder erlauben.',
+  sessionEnded: 'Dein Zugang zu diesem Raum wurde beendet.',
+  sessionEndedHint:
+    'Du wurdest möglicherweise von der Moderation entfernt oder deine Sitzung ist nicht mehr gültig.',
   chooseAvatar: 'Wähle deinen Avatar',
   avatarHint: 'Dein Look am Pokertisch.',
   changeAvatar: 'Avatar ändern',
@@ -199,6 +227,20 @@ export const de: Record<MessageKey, string> = {
   deckLockedHint: 'Zum Deckwechsel die Runde aufdecken oder neu starten.',
 };
 export const es: Record<MessageKey, string> = {
+  participants: 'Participantes',
+  voter: 'Puede votar',
+  makeObserver: 'Solo observar',
+  allowVoting: 'Permitir votar',
+  removeMember: 'Expulsar',
+  removeMemberConfirm: '¿Expulsar a {name} de esta sala?',
+  memberRemoved: 'Participante expulsado',
+  permissionsSaved: 'Permisos de voto actualizados',
+  observerLocked: 'El moderador te ha asignado el modo de observador.',
+  moderationHint:
+    'El modo de observador elimina el voto actual. Puedes volver a permitir votar en cualquier momento.',
+  sessionEnded: 'Tu acceso a esta sala ha terminado.',
+  sessionEndedHint:
+    'Es posible que el moderador te haya expulsado o que tu sesión ya no sea válida.',
   chooseAvatar: 'Elige tu avatar',
   avatarHint: 'Dale personalidad a tu sitio en la mesa.',
   changeAvatar: 'Cambiar avatar',
@@ -292,6 +334,20 @@ export const es: Record<MessageKey, string> = {
   deckLockedHint: 'Revela o reinicia la ronda para cambiar el mazo.',
 };
 export const fr: Record<MessageKey, string> = {
+  participants: 'Participants',
+  voter: 'Peut voter',
+  makeObserver: 'Observation uniquement',
+  allowVoting: 'Autoriser le vote',
+  removeMember: 'Exclure',
+  removeMemberConfirm: 'Exclure {name} de ce salon ?',
+  memberRemoved: 'Participant exclu',
+  permissionsSaved: 'Droits de vote mis à jour',
+  observerLocked: 'L’animateur t’a placé en observation uniquement.',
+  moderationHint:
+    'Le mode observation supprime le vote actuel. Tu peux autoriser le vote à nouveau à tout moment.',
+  sessionEnded: 'Ton accès à ce salon a pris fin.',
+  sessionEndedHint:
+    'L’animateur t’a peut-être exclu ou ta session n’est plus valide.',
   chooseAvatar: 'Choisis ton avatar',
   avatarHint: 'Affiche ton style à la table.',
   changeAvatar: 'Changer d’avatar',
@@ -395,6 +451,24 @@ export function translate(
   );
 }
 export const errorMessages = {
+  OBSERVER_LOCKED: {
+    en: 'Only the host can allow you to vote again.',
+    de: 'Nur die Moderation kann dir das Abstimmen wieder erlauben.',
+    es: 'Solo el moderador puede permitirte votar de nuevo.',
+    fr: 'Seul l’animateur peut t’autoriser à voter à nouveau.',
+  },
+  MEMBER_NOT_FOUND: {
+    en: 'This participant is no longer in the room.',
+    de: 'Dieser Teilnehmer ist nicht mehr im Raum.',
+    es: 'Este participante ya no está en la sala.',
+    fr: 'Ce participant n’est plus dans le salon.',
+  },
+  CANNOT_MODERATE_HOST: {
+    en: 'The host cannot be removed or restricted.',
+    de: 'Die Moderation kann nicht entfernt oder eingeschränkt werden.',
+    es: 'No se puede expulsar ni restringir al moderador.',
+    fr: 'L’animateur ne peut pas être exclu ni restreint.',
+  },
   INVALID_AVATAR: {
     en: 'Please choose an avatar from the collection.',
     de: 'Bitte wähle einen Avatar aus der Auswahl.',
